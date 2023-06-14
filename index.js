@@ -3,7 +3,6 @@ import { Board } from "./board.js";
 import { Shuffler } from "./shuffler.js";
 import { Solver } from "./solver.js";
 
-// Test Board class
 const initialState = [
   [0, 1, 2],
   [3, 4, 5],
@@ -19,34 +18,23 @@ console.log('Initializing board...');
 let board = new Board(initialState, goalState);
 
 console.log('Shuffling board...');
-const shuffler = new Shuffler(board, 8, 4);
-
-shuffler.shuffle();
-board = shuffler.assign();
+const shuffler = new Shuffler(board, 6, 10);
+board.setState(shuffler.shuffle());
 
 console.log('Solving board...');
-const solver = new Solver(board, shuffler.maxDepth * 2);
+const solver = new Solver(board, 10);
 solver.solve();
 
 function getSolutionMoves() {
-  const shufflerMoves = shuffler.getShuffleQueue()
-    .map(({ move }) => move)
-    .reduce((acc, move) => (acc === '' ? move : acc + ', ' + move), '');
-
   const solverMoves = solver.getSolutionQueue()
     .map(({ move }) => move)
     .reduce((acc, move) => (acc === '' ? move : acc + ', ' + move), '');
 
-  return `Shuffler: ${shufflerMoves}\nSolver: ${solverMoves}`;
+  return `Solution: ${solverMoves}`;
 }
 
-// const moves = shuffler.getShuffleQueue()
-//   .slice(1) // Exclude the element at index 0
-//   .reverse()
-//   .map(({ move }) => move)
-//   .reduce((acc, move) => (acc === '' ? move : acc + ', ' + move), '');
-
 function displayBoardState() {
+  solver.solve();
   console.log("Current State:");
   console.log(board.getState().toString());
   console.log("Distance:", board.getStateDistance());

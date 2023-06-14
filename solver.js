@@ -3,25 +3,25 @@ import { MinPriorityQueue } from "@datastructures-js/priority-queue";
 export class Solver {
   constructor(board, maxDepth) {
     this.maxDepth = maxDepth || 0;
-    this.root = new SolveNode(board.getState(), null, 0);
     this.goalState = board.getGoalState();
+    this.root = new SolveNode(board.getState(), this.goalState, null, 0);
     this.solveQueue = [];
   }
 
   solve() {
-    const queue = new MinPriorityQueue(node => node.state.distanceFrom(this.goalState).totalAverage);
+    const queue = new MinPriorityQueue(node => node.getDistance().totalAverage);
     const visited = new Set();
 
     queue.enqueue(this.root);
 
     while (!queue.isEmpty()) {
       const currentNode = queue.dequeue();
-      if (visited.has(currentNode.state)) continue;
+      if (visited.has(currentNode.getState())) continue;
 
       // Skip exploring nodes beyond the maximum allowed depth
       const currentDepth = currentNode.depth;
       if (this.maxDepth && this.maxDepth > 0 && currentDepth > this.maxDepth) {
-        visited.add(currentNode.state);
+        visited.add(currentNode.getState());
         continue;
       }
 
@@ -44,26 +44,26 @@ export class Solver {
             this.buildSolveQueue(currentNode);
             return this.solveQueue;
           }
-          // No valid board state was found. Consider using a
-          //  higher max depth, or higher minDistance value(s)
+          // No valid board state was found. Consider using a higher max depth
           return null;
         }
 
         // All neighbors of this node have been visited, so
         //  let's skip this node from now on
-        visited.add(currentNode.state);
+        visited.add(currentNode.getState());
         continue;
       }
 
-      if (currentNode.state.equals(this.goalState)) {
+      if (currentNode.getState().equals(this.goalState)) {
         // Solution found, build the queue of moves
         this.buildSolveQueue(currentNode);
         return this.solveQueue;
       }
 
       for (const state of neighborStates) {
-        const newNode = new SolveNode(state, currentNode, currentDepth + 1);
-        if (!visited.has(newNode.state)) queue.enqueue(newNode);
+        const newNode = new SolveNode(state, this.goalState, currentNode, currentDepth + 1);
+        if (!visited.has(newNode.getState()))
+          queue.enqueue(newNode);
       }
     }
 
@@ -88,8 +88,9 @@ export class Solver {
 }
 
 class SolveNode {
-  constructor(state, parent, depth) {
+  constructor(state, goalState, parent, depth) {
     this.state = state;
+    this.goalState = goalState;
     this.parent = parent;
     this.depth = depth;
     this.neighbors = this.getNeighborStates();
@@ -102,6 +103,10 @@ class SolveNode {
 
   getNeighborStates() {
     return this.state.getNeighborStates();
+  }
+
+  getDistance() {
+    return this.state.distanceFrom(this.goalState);
   }
 
   getMoveDirection() {

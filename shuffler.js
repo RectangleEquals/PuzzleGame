@@ -1,91 +1,45 @@
 import seedrandom from 'seedrandom';
+import { MaxPriorityQueue } from "@datastructures-js/priority-queue";
 
 export class Shuffler {
-  constructor(board, maxDepth, minMisplaced) {
+  constructor(board, minMisplaced, minFinalStates) {
     this.board = board;
-    this.maxDepth = maxDepth || 0;
     this.minMisplaced = minMisplaced;
+    this.minFinalStates = minFinalStates;
 
     const currentTimestamp = Date.now().toString();
     this.random = seedrandom(currentTimestamp);
 
     this.goalState = this.board.getGoalState();
-    this.root = new ShuffleNode(this.goalState, this.goalState, null, 0);
-    this.shuffleQueue = [];
+    this.root = new ShuffleNode(this.board.getState(), this.goalState, null, 0);
+    this.finalStates = [];
   }
 
   shuffle() {
-    const stack = [this.root];
-    const visited = new Set();
+    const queue = new MaxPriorityQueue(node => node.getDistance().totalAverage);
+    queue.enqueue(this.root);
 
-    while (stack.length > 0) {
-      const currentNode = stack.pop();
-      if(visited.has(currentNode.state))
-        continue;
-
-      // Skip exploring nodes beyond the maximum allowed depth
-      const currentDepth = currentNode.depth;
-      if (this.maxDepth && this.maxDepth > 0 && currentDepth > this.maxDepth) {
-        visited.add(currentNode.state);
-        continue;
+    while (!queue.isEmpty()) {
+      const currentNode = queue.dequeue();
+      
+      const misplacedTiles = currentNode.getDistance().misplaced;
+      if (misplacedTiles >= this.minMisplaced) {
+        this.finalStates.push(currentNode.getState());
+        if (this.finalStates.length >= this.minFinalStates) {
+          return this.randomAssign();
+        }
       }
       
-      const currentDistance = currentNode.getStateDistance(this.goalState);
       const neighborStates = currentNode.getNeighborStates();
-
-      // Check if all neighboring nodes have already been visited,
-      //  and if so, skip exploring them
-      let allVisited = true;
-      for(const neighborState of neighborStates) {
-        if(!visited.has(neighborState)) {
-          allVisited = false;
-          break;
-        }
-      }
-
-      if(allVisited) {
-        if(currentNode === this.root) {
-          // All possible paths have been visited
-          if(stack.length > 0) {
-            this.buildShuffleQueue(currentNode);
-            return this.shuffleQueue;
-          }
-          // No valid board state was found. Consider using a
-          //  higher max depth, or higher minMisplaced value(s)
-          return null;
-        }
-
-        // All neighbors of this node have been visited, so
-        //  let's skip this node from now on
-        visited.add(currentNode.state);
-        continue;
-      }
-
-      if (stack.length >= this.maxDepth && currentDistance.misplaced >= this.minMisplaced) {
-        // Shuffle successful, build the queue of valid moves
-        this.buildShuffleQueue(currentNode);
-        return this.shuffleQueue;
-      }
-
-      //const shuffledIndices = this.getShuffledIndices(neighborStates);
       const shuffledNeighborStates = this.shuffleArray(neighborStates);
-      
-      for (let i = 0; i < shuffledNeighborStates.length; i++) {
-        const state = shuffledNeighborStates[i];
-        const newNode = new ShuffleNode(state, this.goalState, currentNode, currentDepth + 1);
-        if(!visited.has(newNode.state))
-          stack.push(newNode);
+
+      for (const state of shuffledNeighborStates) {
+        const newNode = new ShuffleNode(state, this.goalState, currentNode, currentNode.depth + 1);
+        queue.enqueue(newNode);
       }
     }
 
-    if(stack.length > 0) {
-      this.buildShuffleQueue(currentNode);
-      return this.shuffleQueue;
-    }
-
-    // All possible paths have been visited, but no valid board was found.
-    // Consider using a higher max depth, or higher minMisplaced value(s)
-    return null;
+    return this.randomAssign();
   }
 
   shuffleArray(array) {
@@ -99,63 +53,9 @@ export class Shuffler {
     return shuffledArray;
   }
 
-  getShuffledIndices(neighborStates) {
-    let shuffledIndices = [];
-    const maxIndex = neighborStates.length;
-
-    function isSequential(array) {
-      for (let i = 0; i < array.length - 1; i++) {
-        if (array[i] + 1 !== array[i + 1]) {
-          return false;
-        }
-      }
-      return true;
-    }
-  
-    while (shuffledIndices.length < Math.min(maxIndex, 4)) {
-      const randomIndex = Math.floor(this.random() * maxIndex);
-  
-      if (!shuffledIndices.includes(randomIndex)) {
-        shuffledIndices.push(randomIndex);
-      }
-    }
-
-    if (isSequential(neighborStates.map((_, index) => index))) {
-      // If the indices are sequential, return the indices in the order of the state with the highest distance
-      shuffledIndices = neighborStates
-        .map((state, index) => ({ state, index }))
-        .sort((a, b) => {
-          const distanceA = a.state.distanceFrom(this.goalState).totalAverage;
-          const distanceB = b.state.distanceFrom(this.goalState).totalAverage;
-          const distanceDiff = distanceB - distanceA;
-          if(distanceDiff === 0)
-            return -1;
-          return distanceDiff;
-        })
-        .map(({ index }) => index);
-    }
-
-    return shuffledIndices;
-  }
-
-  buildShuffleQueue(currentNode) {
-    const queue = [];
-
-    while (currentNode !== null) {
-      queue.unshift({state: currentNode.getState(), move: currentNode.getMoveDirection()});
-      currentNode = currentNode.parent;
-    }
-
-    this.shuffleQueue = queue.slice(1).reverse();
-  }
-
-  getShuffleQueue() {
-    return this.shuffleQueue;
-  }
-
-  assign() {
-    this.board.setState(this.shuffleQueue[this.shuffleQueue.length - 1]?.state);
-    return this.board;
+  randomAssign() {
+    const randomIndex = Math.floor(this.random() * this.finalStates?.length);
+    return this.finalStates[randomIndex];
   }
 }
 
@@ -166,7 +66,7 @@ class ShuffleNode {
     this.parent = parent;
     this.depth = depth;
     this.neighbors = this.getNeighborStates();
-    this.distance = this.getStateDistance();
+    this.distance = this.getDistance();
     this.moveDirection = this.getMoveDirection();
   }
 
@@ -178,7 +78,7 @@ class ShuffleNode {
     return this.state.getNeighborStates();
   }
 
-  getStateDistance() {
+  getDistance() {
     return this.state.distanceFrom(this.goalState);
   }
 
