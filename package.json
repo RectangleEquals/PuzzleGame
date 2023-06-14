@@ -1,0 +1,17 @@
+{
+  "name": "puzzlegame",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@datastructures-js/priority-queue": "^6.3.0",
+    "seedrandom": "^3.0.5"
+  }
+}
