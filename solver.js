@@ -16,12 +16,12 @@ export class Solver {
 
     while (!queue.isEmpty()) {
       const currentNode = queue.dequeue();
-      if (visited.has(currentNode.getState())) continue;
+      if (visited.has(currentNode.getState().toString())) continue;
 
       // Skip exploring nodes beyond the maximum allowed depth
       const currentDepth = currentNode.depth;
       if (this.maxDepth && this.maxDepth > 0 && currentDepth > this.maxDepth) {
-        visited.add(currentNode.getState());
+        visited.add(currentNode.getState().toString());
         continue;
       }
 
@@ -31,7 +31,7 @@ export class Solver {
       //  and if so, skip exploring them
       let allVisited = true;
       for(const neighborState of neighborStates) {
-        if(!visited.has(neighborState)) {
+        if(!visited.has(neighborState.toString())) {
           allVisited = false;
           break;
         }
@@ -50,7 +50,7 @@ export class Solver {
 
         // All neighbors of this node have been visited, so
         //  let's skip this node from now on
-        visited.add(currentNode.getState());
+        visited.add(currentNode.getState().toString());
         continue;
       }
 
@@ -62,7 +62,7 @@ export class Solver {
 
       for (const state of neighborStates) {
         const newNode = new SolveNode(state, this.goalState, currentNode, currentDepth + 1);
-        if (!visited.has(newNode.getState()))
+        if (!visited.has(newNode.getState().toString()))
           queue.enqueue(newNode);
       }
     }
@@ -79,7 +79,7 @@ export class Solver {
       currentNode = currentNode.parent;
     }
 
-    this.solveQueue = queue.slice(1).reverse();
+    this.solveQueue = queue.slice(1);
   }
 
   getSolutionQueue() {

@@ -1,107 +1,75 @@
-import seedrandom from 'seedrandom';
-import { MaxPriorityQueue } from "@datastructures-js/priority-queue";
+import { BoardState } from "./board.js";
 
-export class Shuffler {
-  constructor(board, minMisplaced, minFinalStates) {
-    this.board = board;
-    this.minMisplaced = minMisplaced;
-    this.minFinalStates = minFinalStates;
+export function shuffle(boardState)
+{
+  const width = boardState.numCols();
+  const height = boardState.numRows();
 
-    const currentTimestamp = Date.now().toString();
-    this.random = seedrandom(currentTimestamp);
+  // Flatten the 2D board into a 1D array
+  const puzzle = [...boardState].flat();
 
-    this.goalState = this.board.getGoalState();
-    this.root = new ShuffleNode(this.board.getState(), this.goalState, null, 0);
-    this.finalStates = [];
+  // Use the Fisher-Yates algorithm to shuffle the array
+  for (let i = puzzle.length - 1; i > 0; i--) {
+    const randomIndex = Math.floor(Math.random() * (i + 1));
+    [puzzle[i], puzzle[randomIndex]] = [puzzle[randomIndex], puzzle[i]];
   }
 
-  shuffle() {
-    const queue = new MaxPriorityQueue(node => node.getDistance().totalAverage);
-    queue.enqueue(this.root);
+  // Check if the shuffled puzzle is solvable
+  const numberOfInversions = countInversions(puzzle);
+  const emptyTilePosition = puzzle.indexOf(0);
+  const isSolvable = isPuzzleSolvable(
+    numberOfInversions,
+    width,
+    emptyTilePosition
+  );
 
-    while (!queue.isEmpty()) {
-      const currentNode = queue.dequeue();
-      
-      const misplacedTiles = currentNode.getDistance().misplaced;
-      if (misplacedTiles >= this.minMisplaced) {
-        this.finalStates.push(currentNode.getState());
-        if (this.finalStates.length >= this.minFinalStates) {
-          return this.randomAssign();
-        }
-      }
-      
-      const neighborStates = currentNode.getNeighborStates();
-      const shuffledNeighborStates = this.shuffleArray(neighborStates);
+  // If the puzzle is unsolvable, swap the first two elements to make it solvable
+  if (!isSolvable) {
+    [puzzle[0], puzzle[1]] = [puzzle[1], puzzle[0]];
+  }
 
-      for (const state of shuffledNeighborStates) {
-        const newNode = new ShuffleNode(state, this.goalState, currentNode, currentNode.depth + 1);
-        queue.enqueue(newNode);
+  // Convert the 1D array back to a 2D board
+  const shuffledBoard = [];
+  for (let i = 0; i < height; i++) {
+    const row = puzzle.slice(i * width, (i + 1) * width);
+    shuffledBoard.push(row);
+  }
+
+  return new BoardState(shuffledBoard);
+}
+
+function countInversions(puzzle)
+{
+  let inversions = 0;
+  for (let i = 0; i < puzzle.length - 1; i++) {
+    const currentTile = puzzle[i];
+    if (currentTile === 0) continue;
+
+    for (let j = i + 1; j < puzzle.length; j++) {
+      const nextTile = puzzle[j];
+      if (nextTile === 0) continue;
+
+      if (currentTile > nextTile) {
+        inversions++;
       }
     }
-
-    return this.randomAssign();
   }
+  return inversions;
+}
 
-  shuffleArray(array) {
-    const shuffledArray = [...array];
-
-    for (let i = shuffledArray.length - 1; i > 0; i--) {
-      const j = Math.floor(this.random() * (i + 1));
-      [shuffledArray[i], shuffledArray[j]] = [shuffledArray[j], shuffledArray[i]];
-    }
-
-    return shuffledArray;
-  }
-
-  randomAssign() {
-    const randomIndex = Math.floor(this.random() * this.finalStates?.length);
-    return this.finalStates[randomIndex];
+function isPuzzleSolvable(numberOfInversions, width, emptyTilePosition) {
+  if (width % 2 === 1) {
+    return numberOfInversions % 2 === 0;
+  } else {
+    const rowNumber = getRowNumberFromBelow(width, emptyTilePosition);
+    return (rowNumber % 2 === 0 && numberOfInversions % 2 === 1) ||
+      (rowNumber % 2 === 1 && numberOfInversions % 2 === 0);
   }
 }
 
-class ShuffleNode {
-  constructor(state, goalState, parent, depth) {
-    this.state = state;
-    this.goalState = goalState;
-    this.parent = parent;
-    this.depth = depth;
-    this.neighbors = this.getNeighborStates();
-    this.distance = this.getDistance();
-    this.moveDirection = this.getMoveDirection();
-  }
-
-  getState() {
-    return this.state;
-  }
-
-  getNeighborStates() {
-    return this.state.getNeighborStates();
-  }
-
-  getDistance() {
-    return this.state.distanceFrom(this.goalState);
-  }
-
-  getMoveDirection() {
-    const parentState = this.parent ? this.parent.getState() : null;
-    const blankIndex = this.state.blankIndex();
-    const parentBlankIndex = parentState ? parentState.blankIndex() : {row: -1, col: -1};
-
-    const rowDiff = blankIndex.row - parentBlankIndex.row;
-    const colDiff = blankIndex.col - parentBlankIndex.col;
-
-    if (rowDiff === 0 && colDiff === 1) {
-      return 'left';
-    } else if (rowDiff === 0 && colDiff === -1) {
-      return 'right';
-    } else if (rowDiff === 1 && colDiff === 0) {
-      return 'up';
-    } else if (rowDiff === -1 && colDiff === 0) {
-      return 'down';
-    }
-
-    return null; // Blank tile did not move in a valid direction
-  }
+function getRowNumberFromBelow(width, emptyTilePosition) {
+  const row = Math.floor(emptyTilePosition / width);
+  return width - row;
 }
 
-export default Shuffler;
+export default { shuffle };

@@ -1,6 +1,6 @@
 import readline from "readline";
 import { Board } from "./board.js";
-import { Shuffler } from "./shuffler.js";
+import { shuffle } from "./shuffler.js";
 import { Solver } from "./solver.js";
 
 const initialState = [
@@ -14,19 +14,36 @@ const goalState = [
   [6, 7, 8]
 ];
 
-console.log('Initializing board...');
-let board = new Board(initialState, goalState);
+let board;
+let solver, solution;
 
-console.log('Shuffling board...');
-const shuffler = new Shuffler(board, 6, 10);
-board.setState(shuffler.shuffle());
+function initBoard() {
+  console.log('Initializing board...');
+  board = new Board(initialState, goalState);
+  while(!solution) {
+    shuffleBoard();
+    console.log('Solving board...');
+    solver = new Solver(board, 10);
+    solution = solver.solve();
+  }
+}
 
-console.log('Solving board...');
-const solver = new Solver(board, 10);
-solver.solve();
+function shuffleBoard() {
+  console.log('Shuffling board...');
+  board.setState(shuffle(board.getState()));
+}
+
+function solveBoard() {
+  console.log('Solving board...');
+  solver = new Solver(board, 10);
+  solution = solver.solve();
+}
+
+initBoard();
 
 function getSolutionMoves() {
-  const solverMoves = solver.getSolutionQueue()
+  solveBoard();
+  const solverMoves = solution
     .map(({ move }) => move)
     .reduce((acc, move) => (acc === '' ? move : acc + ', ' + move), '');
 
@@ -34,7 +51,6 @@ function getSolutionMoves() {
 }
 
 function displayBoardState() {
-  solver.solve();
   console.log("Current State:");
   console.log(board.getState().toString());
   console.log("Distance:", board.getStateDistance());
